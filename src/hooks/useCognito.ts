@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { AuthenticationDetails, CognitoUser, CognitoUserPool, CognitoUserSession, IAuthenticationCallback } from "amazon-cognito-identity-js";
-
-import { useTokenStore } from "@/stores/useTokenStore";
+import Cookies from 'js-cookie';
 
 // 手抜きだけど、ページ変わった時も残っててほしいのでグローバル変数で保持
 let requiredAttributes: any;
@@ -11,7 +10,6 @@ export const useCognito = () => {
   const [session, setSession] = useState<CognitoUserSession>();
   const [error, setError] = useState<any>();
   const [needPasswordVerify, setNeedPasswordVerify] = useState(false);
-  const setToken = useTokenStore((state) => state.setToken);
 
   /** 認証 */
   const authenticateUser = (username: string, password: string) => {
@@ -31,10 +29,7 @@ export const useCognito = () => {
     });
 
     cognitoUser.authenticateUser(authenticationDetails, {
-      onSuccess: (session) => {
-        setSession(session);
-        setToken(session.getIdToken().getJwtToken());
-      },
+      onSuccess: (session) => authenticationSuccess(session),
       onFailure: (err) => {
         console.error(err);
         setError(err);
@@ -49,15 +44,17 @@ export const useCognito = () => {
   /** パスワード変更 */
   const resetPassword = (newPassword: string) => {
     cognitoUser!.completeNewPasswordChallenge(newPassword, requiredAttributes, {
-      onSuccess: (session) => {
-        setSession(session),
-        setToken(session.getIdToken().getJwtToken());
-      },
+      onSuccess: (session) => authenticationSuccess(session),
       onFailure: (err) => {
         console.error(err);
         setError(err);
       },
     });
+  };
+
+  const authenticationSuccess = (session: CognitoUserSession) => {
+    setSession(session),
+    Cookies.set("TOKEN", session.getIdToken().getJwtToken(), { path: '/' });
   };
 
   const ref = useRef({ authenticateUser, resetPassword });
